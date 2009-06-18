@@ -1,0 +1,63 @@
+This tool provides an OpenStreetMap data parser to turn them into csv files made for routing.
+
+== FILE FORMAT ==
+Given an .osm XML file, it generates two csv files with a coma as separator
+
+* nodes.csv that contains
+    * id (64 bit integer)
+    * longitude (decimal real)
+    * latitude (decimal real)
+    * altitude (integer in meters)
+
+* edges.csv that contains
+    * id (64 bit integer)
+    * source node id (64 bit integer)
+    * target node id (64 bit integer)
+    * length (real in meters),
+    * car accessibility (integer)
+    * car reverse accessibility (integer)
+    * bike accessibility (integer)
+    * bike reverse accessibility (integer)
+    * foot accessibility (integer)
+    * geometry (string representing a linestring in the WKT format)
+
+The accessibility is an integer describing the edge for every mean of transport.
+As for cars an bikes the driving direction might change those properties, the
+are direct (source->target direction) an reverse (target->source direction)
+information.
+
+The integers mean:
+* cars (the speed is an indication of average speed in kilometers per hour,
+  however it is not meant for a precise routing)
+    * 0 forbiden
+    * 1 residential street (20)
+    * 2 tertiary road (30)
+    * 3 secondary road (50)
+    * 4 primary road (90)
+    * 5 trunk (100)
+    * 6 motorway (120)
+* bike
+    * 0 forbiden
+    * 1 cycling lane in the opposite direction of the car flow
+    * 2 allowed without specific equipment
+    * 3 cycling lane
+    * 4 bus lane allowed for cycles
+    * 5 cycling track
+
+== INSTALL ==
+You need the GCC C++ complier (g++), the expat library and python.
+
+Run make and it should compile.
+
+== USAGE == 
+Get the .osm XML file of the region that interests you.
+For limited regions, use the export tools from the web interface.
+For bigger regions you might find what you want at http://download.geofabrik.de/osm/
+
+You need an internet connection in order to get elevation data from
+http://www2.jpl.nasa.gov/srtm/ (done automatically).
+
+Just run
+./run_me.py your_file.osm
+
+It should generate the edges.csv and nodes.csv files
