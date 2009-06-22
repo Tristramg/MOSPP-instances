@@ -1,0 +1,55 @@
+== INTRODUCTION ==
+The aim is to produce instances for solving the multiobjective shortest path.
+We provide realistic data based on the actual street network of some cities.
+
+The data comes from OpenStreetMap (http://www.openstreetmap.org) for most
+data and from the STRM project of the NASA for the elevation data.
+
+We hope that those instances will allow researcher to test their algorithms
+and compare their results with other publications.
+
+An effort has been made in order to provide easy to use data. The instances
+are coma separated value files (.csv) that are a natural representation
+of a graph.
+Furthermore we provide code samples to import those instances directly in some
+usual programming languages and libraries.
+
+Please note that the instances are based on actual data, but the model has
+been simplified in order to be easy to manipulate. This data
+is not meant to be used for real life tools, but for comparing algorithms.
+
+A parser has been provided, so that every user can build an instance on
+the region he disires.
+
+A solver implements Martins' algorithm. It is not an state of the art
+multi-objective shortest path problem solver, but allows to get a exact
+Pareto front.
+
+== OBJECTIVES ==
+The following objectives are available
+* Length
+* Duration
+* Positive elevation (we consider that a street going downhill counts as 0)
+* Cycling comfort (depending on the type of street)
+* CO2 emissions
+
+== PUBLIC TRANSPORTATION ==
+Modelling the public transportation is not an easy task. Indeed due to the
+time dependency, existing approaches vary a lot, and it is not possible to
+provide a straight forward model.
+
+Furthermore, real data can generaly not be redistributed.
+
+We therefor rely on the Google Transit Data Feed format, and let every user
+model the public transportation as he wishes.
+
+== FEEDBACK ==
+We need to know what you think about those instances and what you use them for.
+
+== LICENCE ==
+* Data
+    * The elevation data are public domain an can be freely be used
+    * The OpenStreetMap data are under the Creative Common licence
+* Source code
+    * The OSM-data parser in under the GPL v3 licence
+    * The csv files reader examples can be used as you wish
