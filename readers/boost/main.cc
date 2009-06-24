@@ -31,7 +31,7 @@ struct Edge
     float bike_comfort;
 };
 
-typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS, Node, Edge > Graph;
+typedef boost::adjacency_list<boost::listS, boost::vecS, boost::directedS, Node, Edge > Graph;
 typedef boost::graph_traits<Graph>::vertex_descriptor node_t;
 typedef boost::graph_traits<Graph>::edge_descriptor edge_t;
 
