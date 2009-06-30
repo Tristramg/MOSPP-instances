@@ -19,7 +19,6 @@
 #include "cmath"
 
 using namespace std;
-using namespace boost;
 
 Node * source;
 Node * prev;
@@ -133,11 +132,7 @@ start2(void *, const char *el, const char **attr)
                 geom << n->lon << " " << n->lat;
                 edge_length = 1;
             }
-            if (edge_length > 2)
-                cout << "GOT ONE !" << endl;
         }
-        else
-            cout << "WTF ??" << endl;
     }
 
     else if(strcmp(el, "tag") == 0)
@@ -175,8 +170,6 @@ end2(void *, const char *el)
         {
             edges.push_back(Edge(source, prev, geom.str(), length));
         }
-            if (edge_length > 2)
-                cout << "GOT ONE !" << endl;
  
         if(ep.accessible())
         {
@@ -190,7 +183,7 @@ end2(void *, const char *el)
                 {
                     edges_file << edges_inserted << "," <<  // id
                         (*it).source->id << "," << // source
-                        (*it).source->id << "," << // target
+                        (*it).target->id << "," << // target
                         (*it).length << "," << // length
                         ep.car_direct << "," <<
                         ep.car_reverse << "," <<
@@ -313,7 +306,7 @@ main(int argc, char** argv)
     cout << "DONE!" << endl << endl;
 
     cout << "Nodes in database: " << nodes_inserted << endl;
-    cout << "edges in database: " << edges_inserted << endl;
+    cout << "Edges in database: " << edges_inserted << endl;
     cout << "Happy routing! :)" << endl << endl;
 
     return (EXIT_SUCCESS);

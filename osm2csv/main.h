@@ -17,7 +17,6 @@
 
 #include <list>
 #include <expat.h>
-#include <boost/tuple/tuple.hpp>
 #include <string>
 #include <iostream>
 #include <map>
@@ -89,7 +88,7 @@ struct Node
     Node() : inserted(false) {};
 
     Node(double _lon, double _lat, uint64_t _id) :
-        id(_id), lon(_lon), lat(_lat), inserted(false)
+        id(_id), lon(_lon), lat(_lat), uses(0), inserted(false)
     {};
 };
 
