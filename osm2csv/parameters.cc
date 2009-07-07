@@ -145,7 +145,7 @@ void Edge_property::update(const std::string & key, const std::string & val)
 
     else if(key == "bicycle")
     {
-        if(val == "yes" || val == "permissive" || val == "destination")
+        if(val == "yes" || val == "permissive" || val == "destination" || val == "designated")
             bike_direct = bike_allowed;
         else if(val == "no")
             bike_direct = bike_forbiden;

@@ -122,9 +122,12 @@ start2(void *, const char *el, const char **attr)
             prev = n;
             edge_length++;
 
-            if(n->uses > 1 && edge_length > 1)
+            if(n->uses > 1 && edge_length > 1 )
             {
-                edges.push_back(Edge(source, n, geom.str(), length));
+                // It's a duplicate node, or a loop way
+                if(source != prev)
+                    edges.push_back(Edge(source, prev, geom.str(), length));
+
                 source = n;
                 length = 0;
 
@@ -179,27 +182,24 @@ end2(void *, const char *el)
             {
                 (*it).source->inserted = true;
                 (*it).target->inserted = true;
-                if(ep.direct_accessible())
-                {
-                    edges_file << edges_inserted << "," <<  // id
-                        (*it).source->id << "," << // source
-                        (*it).target->id << "," << // target
-                        (*it).length << "," << // length
-                        ep.car_direct << "," <<
-                        ep.car_reverse << "," <<
-                        ep.bike_direct << "," <<
-                        ep.bike_reverse << "," <<
-                        ep.foot << "," <<
-                        "LINESTRING(\"" << (*it).geom << "\")" << endl;
-                    edges_inserted++;
-                }
+                edges_file << edges_inserted << "," <<  // id
+                    (*it).source->id << "," << // source
+                    (*it).target->id << "," << // target
+                    (*it).length << "," << // length
+                    ep.car_direct << "," <<
+                    ep.car_reverse << "," <<
+                    ep.bike_direct << "," <<
+                    ep.bike_reverse << "," <<
+                    ep.foot << "," <<
+                    "LINESTRING(\"" << (*it).geom << "\")" << endl;
+                edges_inserted++;
             }
-            edges.clear();
-            length = 0;
-            geom.str("");
-            edge_length = 0;
-            ep.reset();
         }
+        edges.clear();
+        length = 0;
+        geom.str("");
+        edge_length = 0;
+        ep.reset();
 
     }
 }
