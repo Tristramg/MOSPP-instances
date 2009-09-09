@@ -202,7 +202,7 @@ void MainWindow::compute()
     if(stop != NULL && stop != NULL)
     {
         cout << "Starting the martins algorithm. Let's see what happens" << endl;
-        vector<Path> labels = martins(start_node, dest_node, g, 30000, 3);
+        vector<Path> labels = martins(start_node, dest_node, g, &Edge::nb_changes);
         this->m_ui->result_label->setText(QString("Nb solutions = %1").arg(labels.size()));
         int i = 0;
         this->m_ui->result_table->setRowCount(labels.size());

@@ -40,7 +40,7 @@ struct Edge
 {
     float distance;
     float elevation;
-    int nb_changes;
+    float nb_changes;
     float cost;
     Duration duration;
 };

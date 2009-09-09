@@ -67,8 +67,12 @@ int main(int argc, char *argv[])
                     for(int i=0; i<10; i++)
                     {
                         node_t start = rand() % d.first;
-                        martins(start, invalid_node, g, 30000, obj);
-
+                        if(obj == 1)
+                            martins(start, invalid_node, g);
+                        if(obj == 2)
+                            martins(start, invalid_node, g, &Edge::nb_changes);
+                        if(obj == 3)
+                            martins(start, invalid_node, g, &Edge::nb_changes, &Edge::elevation);
                     }
 
                     ptime etime(microsec_clock::local_time());
@@ -86,9 +90,9 @@ int main(int argc, char *argv[])
                     node_t start = rand() % d.first;
                     node_t end = rand() % a.first + d.first;
                     ptime stime(microsec_clock::local_time());
-                    martins(start, end, g, 30000, 2);
+                    martins(start, end, g, &Edge::nb_changes);
                     ptime etime(microsec_clock::local_time());
-                    martins(start, end, g, 30000, 3);
+                    martins(start, end, g, &Edge::nb_changes, &Edge::elevation);
                     ptime etime2(microsec_clock::local_time());
 
                     cout << distance(g[start].lon, g[start].lat, g[end].lon, g[end].lat) << " " << (etime - stime).total_milliseconds() << " " << (etime2 - etime).total_milliseconds() << endl;
