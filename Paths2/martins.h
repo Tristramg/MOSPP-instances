@@ -14,7 +14,7 @@ struct Path
     }
 };
 
-std::vector<Path> martins(node_t start, node_t dest, MultimodalGraph & g, int start_time = 30000);
+std::vector<Path> martins(node_t start, node_t dest, MultimodalGraph & g, int start_time = 30000, int nb_objectives=2);
 
 
 #endif // MARTINS_H

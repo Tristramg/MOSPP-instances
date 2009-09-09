@@ -5,8 +5,7 @@
 #include "boost/date_time/posix_time/posix_time_types.hpp"
 #include <stdlib.h>
 #include <time.h>
-#include <iostream>
-#include "cmath"
+
 using namespace std;
 using namespace boost::posix_time;
 
@@ -23,35 +22,80 @@ int main(int argc, char *argv[])
     }
     else
     {
-        MultimodalGraph g;
-        std::string path = "/home/tristram/MOSPP-instances/instances/San Francisco";
-        std::pair<int, int> a, b, c;
-        a = g.load("foot", path + "/nodes.csv", path+"/edges.csv", Foot);
-        cout << "Loaded " << a.first << " nodes, and " << a.second << " edges" << endl;
-        b = g.load("bart", path + "/stops.txt", path+"/stop_times.txt", PublicTransport);
-        cout << "Loaded " << b.first << " nodes, and " << b.second << " edges" << endl;
-        c = g.load("muni", path + "/stops_muni.txt", path+"/stop_times_muni.txt", PublicTransport);
-        cout << "Loaded " << c.first << " nodes, and " << c.second << " edges" << endl;
+        char * nodes[3] = {"nodes_s.csv", "nodes_m.csv", "nodes_l.csv"};
+        char * edges[3] = {"edges_s.csv", "edges_m.csv", "edges_l.csv"};
 
-        Edge interconnexion;
-        interconnexion.distance = 0;
-        interconnexion.duration = Duration(30);
-        interconnexion.elevation = 0;
-        interconnexion.nb_changes = 1;
-        cout << "Nb of interconnecting edges: " << g.connect_closest("bart", "foot", interconnexion) << endl;
-        cout << "Nb of interconnecting edges: " << g.connect_closest("muni", "foot", interconnexion) << endl;
-
-        srand ( time(NULL) );
-        for(int i=0; i<10; i++)
+        cout << "Starting first experiment: one-to-all"  << endl;
+        cout << "StreetNodes StreetEdges TotalNodes TotalEdges 1obj 2obj 3obj 4obj" << endl;
+        for(int file=0; file < 3; file++)
         {
-            ptime stime(microsec_clock::local_time());
-            node_t start = rand() % a.first;
-            node_t dest = rand() % b.first;
-            size_t n=(martins(start, dest, g)).size();
-            ptime etime(microsec_clock::local_time());
+            MultimodalGraph g;
+            std::string path = "../instances/San Francisco/";
+            std::pair<int, int> a, b, c, d;
 
-            cout << "Duration: " << (etime - stime).total_milliseconds() << "ms; distance: " << distance(g[start].lon, g[start].lat, g[dest].lon, g[dest].lat) << "; Nb solutions: " << n << endl;
+            d = g.load("bike", path + nodes[file], path + edges[file], Bike);
+            a = g.load("foot", path + nodes[file], path + edges[file], Foot);
+            b = g.load("bart", path + "stops_bart.txt", path+"stop_times_bart.txt", PublicTransport);
+            c = g.load("muni", path + "stops_muni.txt", path+"stop_times_muni.txt", PublicTransport);
+
+            Edge interconnexion;
+            interconnexion.distance = 0;
+            interconnexion.duration = Duration(30);
+            interconnexion.elevation = 0;
+            interconnexion.cost = 0;
+            interconnexion.nb_changes = 1;
+
+            g.connect_closest("foot", "bart", interconnexion);
+            g.connect_closest("foot", "muni", interconnexion);
+            g.connect_closest("bike", "foot", interconnexion, false);
+
+            srand ( time(NULL) );
+
+            float nb_runs = 10;
+
+            cout << a.first << " " << a.second << " " <<  boost::num_vertices(g.graph()) << " " << boost::num_edges(g.graph()) << flush;
+
+            for(int obj = 1; obj <= 3; obj++)
+            {
+                if(file == 2 && obj == 4)
+                {
+                    cout << " ---" << flush;
+                }
+                else
+                {
+                    ptime stime(microsec_clock::local_time());
+                    for(int i=0; i<10; i++)
+                    {
+                        node_t start = rand() % d.first;
+                        martins(start, invalid_node, g, 30000, obj);
+
+                    }
+
+                    ptime etime(microsec_clock::local_time());
+                    cout << " " << ((etime - stime).total_milliseconds()) / nb_runs << flush;
+                }
+            }
+            cout << endl;
+
+            if( file == 2 )
+            {
+                cout << endl << "Starting second experience: one-to-one" << endl;
+                cout << "Distance 2obj 3 obj" << endl;
+                for(int i=0; i< 100; i++)
+                {
+                    node_t start = rand() % d.first;
+                    node_t end = rand() % a.first + d.first;
+                    ptime stime(microsec_clock::local_time());
+                    martins(start, end, g, 30000, 2);
+                    ptime etime(microsec_clock::local_time());
+                    martins(start, end, g, 30000, 3);
+                    ptime etime2(microsec_clock::local_time());
+
+                    cout << distance(g[start].lon, g[start].lat, g[end].lon, g[end].lat) << " " << (etime - stime).total_milliseconds() << " " << (etime2 - etime).total_milliseconds() << endl;
+                }
+            }
+
         }
-    }
 
+    }
 }

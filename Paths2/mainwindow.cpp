@@ -12,22 +12,29 @@ MainWindow::~MainWindow()
 MainWindow::MainWindow(QWidget *parent)
         : QMainWindow(parent), m_ui(new Ui::MainWindow)
 {
-        std::string path = "/home/tristram/MOSPP-instances/instances/San Francisco";
-        std::pair<int, int> a, b, c;
-        a = g.load("foot", path + "/nodes.csv", path+"/edges.csv", Foot);
-        cout << "Loaded " << a.first << " nodes, and " << a.second << " edges" << endl;
-        b = g.load("bart", path + "/stops.txt", path+"/stop_times.txt", PublicTransport);
-        cout << "Loaded " << b.first << " nodes, and " << b.second << " edges" << endl;
-        c = g.load("muni", path + "/stops_muni.txt", path+"/stop_times_muni.txt", PublicTransport);
-        cout << "Loaded " << c.first << " nodes, and " << c.second << " edges" << endl;
+    std::string path = "/home/tristram/MOSPP-instances/instances/San Francisco";
+    std::pair<int, int> a, b, c, d;
+    a = g.load("foot", path + "/nodes_big.csv", path+"/edges_big.csv", Foot);
+    cout << "Loaded " << a.first << " nodes, and " << a.second << " edges" << endl;
 
-        Edge interconnexion;
-        interconnexion.distance = 0;
-        interconnexion.duration = Duration(30);
-        interconnexion.elevation = 0;
-        interconnexion.nb_changes = 1;
-        cout << "Nb of interconnecting edges: " << g.connect_closest("bart", "foot", interconnexion) << endl;
-        cout << "Nb of interconnecting edges: " << g.connect_closest("muni", "foot", interconnexion) << endl;
+    b = g.load("bart", path + "/stops.txt", path+"/stop_times.txt", PublicTransport);
+    cout << "Loaded " << b.first << " nodes, and " << b.second << " edges" << endl;
+
+    c = g.load("muni", path + "/stops_muni.txt", path+"/stop_times_muni.txt", PublicTransport);
+    cout << "Loaded " << c.first << " nodes, and " << c.second << " edges" << endl;
+
+    d = g.load("bike", path + "/nodes_big.csv", path+"/edges_big.csv", Bike);
+    cout << "Loaded " << d.first << " nodes, and " << d.second << " edges" << endl;
+
+    Edge interconnexion;
+    interconnexion.distance = 0;
+    interconnexion.duration = Duration(30);
+    interconnexion.elevation = 0;
+    interconnexion.nb_changes = 1;
+    cout << "Nb of interconnecting edges: " << g.connect_closest("bart", "foot", interconnexion) << endl;
+    cout << "Nb of interconnecting edges: " << g.connect_closest("muni", "foot", interconnexion) << endl;
+    cout << "Nb of interconnecting edges: " << g.connect_same_nodes("bike", "foot", interconnexion, false) << endl;
+
 
     m_ui->setupUi(this);
 
@@ -146,21 +153,21 @@ void MainWindow::resizeEvent(QResizeEvent * e)
 void MainWindow::setStart()
 {
     try{
-    node_t matched = g["foot"].match(this->lastClick.x(), this->lastClick.y());
-    float lon = g[matched].lon;
-    float lat = g[matched].lat;
-    m_ui->start_label->setText(QString("Lon: %1, lat %2 = %3").arg(this->lastClick.x()).arg(this->lastClick.y()).arg(g[matched].id.c_str()));
-    if(start != NULL)
-        this->ll->removeGeometry(start);
-    start = new ImagePoint(lon, lat, ":/images/arrow-green.png", "Start", Point::BottomRight);
-    this->ll->addGeometry(start);
-    start_node = matched;
-    this->compute();
-}
+        node_t matched = g["bike"].match(this->lastClick.x(), this->lastClick.y());
+        float lon = g[matched].lon;
+        float lat = g[matched].lat;
+        m_ui->start_label->setText(QString("Lon: %1, lat %2 = %3").arg(this->lastClick.x()).arg(this->lastClick.y()).arg(g[matched].id.c_str()));
+        if(start != NULL)
+            this->ll->removeGeometry(start);
+        start = new ImagePoint(lon, lat, ":/images/arrow-green.png", "Start", Point::BottomRight);
+        this->ll->addGeometry(start);
+        start_node = matched;
+        this->compute();
+    }
     catch(match_failed)
     {
         if(start != NULL)
-        this->ll->removeGeometry(start);
+            this->ll->removeGeometry(start);
         m_ui->start_label->setText("Match failed");
     }
 }
@@ -171,17 +178,17 @@ void MainWindow::setDestination()
 {
     try
     {
-    node_t matched = g["foot"].match(this->lastClick.x(), this->lastClick.y());
-    float lon = g[matched].lon;
-    float lat = g[matched].lat;
-    m_ui->dest_label->setText(QString("Lon: %1, lat %2 = %3").arg(this->lastClick.x()).arg(this->lastClick.y()).arg(g[matched].id.c_str()));
-    if(stop != NULL)
-        this->ll->removeGeometry(stop);
-    stop = new ImagePoint(lon, lat, ":/images/arrow-finish.png", "Destination", Point::BottomRight);
-    this->ll->addGeometry(stop);
-    dest_node = matched;
-    this->compute();
-}
+        node_t matched = g["foot"].match(this->lastClick.x(), this->lastClick.y());
+        float lon = g[matched].lon;
+        float lat = g[matched].lat;
+        m_ui->dest_label->setText(QString("Lon: %1, lat %2 = %3").arg(this->lastClick.x()).arg(this->lastClick.y()).arg(g[matched].id.c_str()));
+        if(stop != NULL)
+            this->ll->removeGeometry(stop);
+        stop = new ImagePoint(lon, lat, ":/images/arrow-finish.png", "Destination", Point::BottomRight);
+        this->ll->addGeometry(stop);
+        dest_node = matched;
+        this->compute();
+    }
     catch(match_failed)
     {
         if(stop != NULL)
@@ -195,7 +202,7 @@ void MainWindow::compute()
     if(stop != NULL && stop != NULL)
     {
         cout << "Starting the martins algorithm. Let's see what happens" << endl;
-        vector<Path> labels = martins(start_node, dest_node, g);
+        vector<Path> labels = martins(start_node, dest_node, g, 30000, 3);
         this->m_ui->result_label->setText(QString("Nb solutions = %1").arg(labels.size()));
         int i = 0;
         this->m_ui->result_table->setRowCount(labels.size());
@@ -206,8 +213,8 @@ void MainWindow::compute()
             this->m_ui->result_table->setItem(i, 0, foo);
             foo = new QTableWidgetItem(QString("%1").arg(it->cost[1]));
             this->m_ui->result_table->setItem(i, 1, foo);
-            /*    foo = new QTableWidgetItem(QString("%1").arg(it->cost[2]));
-            this->m_ui->result_table->setItem(i, 2, foo);*/
+            foo = new QTableWidgetItem(QString("%1").arg(it->cost[2]));
+            this->m_ui->result_table->setItem(i, 2, foo);
             foo = new QTableWidgetItem(QString("%1").arg(it->size()));
             this->m_ui->result_table->setItem(i, 3, foo);
             i++;

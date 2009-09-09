@@ -21,6 +21,17 @@ double distance(double lon1, double lat1, double lon2, double lat2)
                  ) * r;
 }
 
+float cost(float length, Mode m)
+{
+    switch(m)
+    {
+        case Foot: return 0; break;
+        case Bike: return length * 0.01 / 1000; break;
+        case Car: return length * 0.2 / 1000; break;
+        case PublicTransport : return length * 0.05 / 1000; break;
+    }
+}
+
 float duration(int property, float length, Mode m)
 {
     switch(m)
@@ -125,7 +136,13 @@ size_t MultimodalGraph::load_edges(const std::string & layer, const std::string 
                     tie(e, b) = edge(prev_node, cur_node, g);
                     if(!b)
                     {
-                        tie(e, b) = add_edge(prev_node, cur_node, g);
+                        Edge ep;
+                        ep.nb_changes = 0;
+                        ep.distance = distance( g[prev_node].lon, g[prev_node].lat, g[cur_node].lon, g[cur_node].lat);
+                        ep.elevation = 0;
+                        ep.nb_changes = 0;
+                        ep.cost = cost(ep.distance, m);
+                        tie(e, b) = add_edge(prev_node, cur_node, ep, g);
                         count++;
                     }
                     g[e].duration.append(prev_departure_time, arrival_time);
@@ -153,13 +170,6 @@ size_t MultimodalGraph::load_edges(const std::string & layer, const std::string 
                              int_p[assign_a(foot)];
 
         int property = 0, rev_property = 0;
-        switch(m)
-        {
-        case Foot: property = foot; rev_property = foot; break;
-        case Bike: property = bike; rev_property = bike_reverse; break;
-        case Car: property = car; rev_property = car_reverse; break;
-        case PublicTransport: break;
-        }
 
         while( getline(edgesf,s) )
         {
@@ -167,15 +177,26 @@ size_t MultimodalGraph::load_edges(const std::string & layer, const std::string 
                 std::cerr << " Parsing error. Line was: " << s << std::endl;
             else
             {
+                switch(m)
+                {
+                case Foot: property = foot; rev_property = foot; break;
+                case Bike: property = bike; rev_property = bike_reverse; break;
+                case Car: property = car; rev_property = car_reverse; break;
+                default: property = 0; rev_property = 0; break;
+                }
                 Edge e;
                 e.nb_changes = 0;
                 node_t source_n = layers[layer][source];
                 node_t target_n = layers[layer][target];
                 e.distance = length;
+                e.cost = cost(length, m);
 
                 try
                 {
-                    e.elevation = std::max(0, g[target_n].elevation - g[source_n].elevation);
+                    if(m == Bike)
+                        e.elevation = std::max(0, g[target_n].elevation - g[source_n].elevation);
+                    else
+                        e.elevation = 0;
                     e.duration = Duration(duration(property, length, m));
                     add_edge(source_n, target_n, e, g);
                     count++;
@@ -184,7 +205,10 @@ size_t MultimodalGraph::load_edges(const std::string & layer, const std::string 
 
                 try
                 {
-                    e.elevation = std::max(0, g[source_n].elevation - g[target_n].elevation);
+                    if(m == Bike)
+                        e.elevation = std::max(0, g[source_n].elevation - g[target_n].elevation);
+                    else
+                        e.elevation = 0;
                     e.duration = Duration(duration(rev_property, length, m));
                     add_edge(target_n, source_n, e, g);
                     count++;
@@ -332,7 +356,7 @@ int Duration::operator()(int start) const
         std::map<int, int>::const_iterator it = timetable.upper_bound(start);
         if(it == timetable.end())
         {
-            return 24*3600 + timetable.begin()->second;
+            return (start / (24*3600) + 1)  * 24*3600 + timetable.begin()->second;
         }
         else
         {
