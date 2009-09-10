@@ -8,7 +8,7 @@ struct unknown_mode{};
 
 double rad(double deg)
 {
-    return deg * M_PIl / 180;
+    return deg * 3.14159265 / 180;
 }
 
 
