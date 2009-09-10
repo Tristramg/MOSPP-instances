@@ -2,7 +2,8 @@
 #include <map>
 #include <iostream>
 #include <boost/graph/adjacency_list.hpp>
-#include <tr1/functional_hash.h>
+//#include <tr1/functional_hash.h>
+#include <boost/functional/hash.hpp>
 #include <ext/hash_map>
 #include <limits.h>
 
@@ -49,7 +50,7 @@ typedef boost::adjacency_list<boost::listS, boost::vecS, boost::directedS, Node,
 typedef boost::graph_traits<Graph_t>::vertex_descriptor node_t;
 typedef boost::graph_traits<Graph_t>::edge_descriptor edge_t;
 
-typedef __gnu_cxx::hash_map<std::string, node_t, std::tr1::hash< std::string > > node_map_t;
+typedef __gnu_cxx::hash_map<std::string, node_t, boost::hash< std::string > > node_map_t;
 
 static const node_t invalid_node = std::numeric_limits<node_t>::max();
 
