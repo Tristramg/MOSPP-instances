@@ -1,6 +1,6 @@
 CXX=g++
 CXXFLAGS=-W -Wall -ansi -pedantic -O3 -Wno-deprecated 
-LDFLAGS=-lexpat
+LDFLAGS=-lexpat -lbz2
 EXEC=osm2csv
 
 all: $(EXEC)

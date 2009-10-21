@@ -20,6 +20,7 @@
 #include <cerrno>
 #include <hash_set>
 #include <deque>
+#include <bzlib.h>
 
 using namespace std;
 
@@ -291,6 +292,10 @@ main(int argc, char** argv)
         return (EXIT_FAILURE);
     }
 
+BZFILE* b;
+int     nBuf;
+int     bzerror;
+
 
     //==================== STEP 1 =======================//
     cout << "Step 1: reading the xml file, extracting the Nodes list" << flush;
@@ -302,25 +307,46 @@ main(int argc, char** argv)
         std::cerr << "Error opening file " << argv[1] << " errorno " << errno << " " << strerror(errno) << std::endl;
         exit(1);
     }
+
+    b = BZ2_bzReadOpen ( &bzerror, fp, 0, 0, NULL, 0 );
+    if ( bzerror != BZ_OK )
+    {
+        std::cerr << "Error opening file " << argv[1] << " as bzip2 file, errno " << bzerror << " " << 
+            BZ2_bzerror(b, &bzerror) << std::endl;
+        BZ2_bzReadClose ( &bzerror, b );
+        exit(1);
+    }
+
+
     XML_Parser parser = XML_ParserCreate(NULL);
     XML_SetElementHandler(parser, start, end);
-    int done;
-    do // loop over whole file content
+
+    while ( bzerror == BZ_OK ) 
     {
         char buf[BUFSIZ];
-        size_t len = fread(buf, 1, sizeof (buf), fp); // read chunk of data
-        done = len < sizeof (buf); // end of file reached if buffer not completely filled
-        if (!XML_Parse(parser, buf, (int) len, done))
-        {
-            // a parse error occured:
-            cerr << XML_ErrorString(XML_GetErrorCode(parser)) <<
-                " at line " <<
-                XML_GetCurrentLineNumber(parser) << endl;
-            fclose(fp);
-            done = 1;
+        //        size_t len = fread(buf, 1, sizeof (buf), fp); // read chunk of data
+        nBuf = BZ2_bzRead ( &bzerror, b, buf, sizeof(buf) );
+        if ( bzerror == BZ_OK ) {
+
+            if (!XML_Parse(parser, buf, (int) nBuf, bzerror == BZ_STREAM_END))
+            {
+                // a parse error occured:
+                cerr << XML_ErrorString(XML_GetErrorCode(parser)) <<
+                    " at line " <<
+                    XML_GetCurrentLineNumber(parser) << endl;
+                cout << buf << std::endl;
+                fclose(fp);
+            }
         }
     }
-    while (!done);
+    if ( bzerror != BZ_STREAM_END )
+    {
+        perror("foo");
+        std::cerr << std::endl << "An error occured while parsing " << bzerror << " " <<  BZ2_bzerror(b, &bzerror) << " " << errno << " " << strerror(errno)   << std::endl;
+        BZ2_bzReadClose ( &bzerror, b );
+        exit(1);
+    }
+
     cout << "... DONE!" << endl;
     cout << "    Nodes found: " << nodes.size() << endl;
     cout << "    Ways found: " << ways_count << endl << endl;
@@ -329,7 +355,6 @@ main(int argc, char** argv)
     //===================== STEP 2 ==========================//
     cout << "Step 2: building edges and saving them in the file edges.csv" << endl;
     keep = false;
-    rewind(fp);
     XML_Parser parser2 = XML_ParserCreate(NULL);
     XML_SetElementHandler(parser2, start2, end2);
 
@@ -338,24 +363,51 @@ main(int argc, char** argv)
     edges_file << setprecision(9);
     edges_file << "\"edge_id\",\"source\",\"target\",\"length\",\"car\",\"car reverse\",\"bike\",\"bike reverse\",\"foot\",\"WKT\"" << endl;
 
+    fp = fopen64(argv[1], "rb");
+    if(!fp)
+    {
+        std::cout << std::endl;
+        std::cerr << "Error opening file " << argv[1] << " errorno " << errno << " " << strerror(errno) << std::endl;
+        exit(1);
+    }
 
-    do // loop over whole file content
+    b = BZ2_bzReadOpen ( &bzerror, fp, 0, 0, NULL, 0 );
+    if ( bzerror != BZ_OK )
+    {
+        BZ2_bzReadClose ( &bzerror, b );
+        std::cerr << "Error opening file " << argv[1] << " as bzip2 file, errno " << bzerror << std::endl;
+        exit(1);
+    }
+
+    while ( bzerror == BZ_OK ) 
     {
         char buf[BUFSIZ];
-        size_t len = fread(buf, 1, sizeof (buf), fp); // read chunk of data
-        done = len < sizeof (buf); // end of file reached if buffer not completely filled
-        if (!XML_Parse(parser2, buf, (int) len, done))
-        {
-            // a parse error occured:
-            cerr << XML_ErrorString(XML_GetErrorCode(parser)) <<
-                " at line " <<
-                XML_GetCurrentLineNumber(parser) << endl;
-            fclose(fp);
-            done = 1;
+        //        size_t len = fread(buf, 1, sizeof (buf), fp); // read chunk of data
+        nBuf = BZ2_bzRead ( &bzerror, b, buf, sizeof(buf) );
+        if ( bzerror == BZ_OK ) {
+
+            if (!XML_Parse(parser2, buf, (int) nBuf, bzerror == BZ_STREAM_END))
+            {
+                // a parse error occured:
+                cerr << XML_ErrorString(XML_GetErrorCode(parser)) <<
+                    " at line " <<
+                    XML_GetCurrentLineNumber(parser) << endl;
+                cout << buf << std::endl;
+                fclose(fp);
+            }
         }
     }
-    while (!done);
-    edges_file.close();
+    if ( bzerror != BZ_STREAM_END )
+    {
+        perror("foo");
+        std::cerr << std::endl << "An error occured while parsing " << bzerror << " " <<  BZ2_bzerror(b, &bzerror) << " " << errno << " " << strerror(errno)   << std::endl;
+        BZ2_bzReadClose ( &bzerror, b );
+        exit(1);
+    } else {
+        BZ2_bzReadClose ( &bzerror, b );
+    }
+
+
     cout << "DONE!" << endl << endl;
 
     //==================== STEP 3 =======================//
