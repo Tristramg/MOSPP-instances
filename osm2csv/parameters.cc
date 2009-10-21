@@ -64,7 +64,7 @@ void Edge_property::normalize()
     if(foot == unknown) foot = foot_forbiden;
 }
 
-void Edge_property::update(const std::string & key, const std::string & val)
+bool Edge_property::update(const std::string & key, const std::string & val)
 {
     if(key == "highway")
     {
@@ -115,7 +115,7 @@ void Edge_property::update(const std::string & key, const std::string & val)
 
     else if(key == "pedestrian" || key == "foot")
     {
-        if(val == "yes" || val == "designated")
+        if(val == "yes" || val == "designated" || val == "permissive")
             foot = foot_allowed;
         else if(val == "no")
             foot = foot_forbiden;
@@ -127,7 +127,7 @@ void Edge_property::update(const std::string & key, const std::string & val)
     // http://wiki.openstreetmap.org/wiki/Map_Features#Cycleway
     else if(key == "cycleway")
     {
-        if(val == "lane")
+        if(val == "lane" || val == "yes" || val == "true" || val == "lane_in_the_middle")
             bike_direct = bike_lane;
         else if(val == "track")
             bike_direct = bike_track;
@@ -139,15 +139,17 @@ void Edge_property::update(const std::string & key, const std::string & val)
             bike_reverse = bike_allowed;
         else if(val == "share_busway")
             bike_direct = bike_busway;
+        else if(val == "lane_left")
+            bike_reverse = bike_lane;
         else
-            std::cerr << "I don't know what to do with: " << key << "=" << val << std::endl;
+            bike_direct = bike_lane;
     }
 
     else if(key == "bicycle")
     {
-        if(val == "yes" || val == "permissive" || val == "destination" || val == "designated")
+        if(val == "yes" || val == "permissive" || val == "destination" || val == "designated" || val == "private" || val == "true")
             bike_direct = bike_allowed;
-        else if(val == "no")
+        else if(val == "no" || val == "true")
             bike_direct = bike_forbiden;
         else
             std::cerr << "I don't know what to do with: " << key << "=" << val << std::endl;
@@ -155,12 +157,12 @@ void Edge_property::update(const std::string & key, const std::string & val)
 
     else if(key == "busway")
     {
-        if(val == "yes" || val == "track")
+        if(val == "yes" || val == "track" || val == "lane")
             bike_direct = bike_busway;
-        else if(val == "oposite_lane")
+        else if(val == "opposite_lane" || val == "opposite_track")
             bike_reverse = bike_busway;
         else
-            std::cerr << "I don't know what to do with: " << key << "=" << val << std::endl;
+            bike_direct = bike_busway;
     }
 
     else if(key == "oneway")
@@ -182,4 +184,5 @@ void Edge_property::update(const std::string & key, const std::string & val)
                 bike_reverse = bike_forbiden;
         }
     }
+    return this->accessible();
 }

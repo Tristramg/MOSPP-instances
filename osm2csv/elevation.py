@@ -51,7 +51,8 @@ class ElevationData:
         fn = filename(lat, lon)
         if not self.tiles.has_key(fn):
             if not os.path.exists(fn + ".zip"):
-                url = "ftp://e0srp01u.ecs.nasa.gov/srtm/version2/SRTM3/%s/%s.zip" % (self.continent, fn)
+#                url = "ftp://e0srp01u.ecs.nasa.gov/srtm/version2/SRTM3/%s/%s.zip" % (self.continent, fn)
+                url = "http://dds.cr.usgs.gov/srtm/version2_1/SRTM3/%s/%s.zip" % (self.continent, fn)
                 print "Tile not in cache. Downloading %s " %url
                 urllib.urlretrieve(url, fn + ".zip")
                 print "    Done!"

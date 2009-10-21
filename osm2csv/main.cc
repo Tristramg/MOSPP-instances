@@ -17,6 +17,9 @@
 
 #include "main.h"
 #include "cmath"
+#include <cerrno>
+#include <hash_set>
+#include <deque>
 
 using namespace std;
 
@@ -32,6 +35,11 @@ std::list<Edge> edges;
 double length;
 int edges_inserted;
 ofstream edges_file;
+
+__gnu_cxx::hash_set<uint64_t, std::tr1::hash<uint64_t> > ways_black_list;
+std::deque<uint64_t> way_nodes;
+uint64_t current_way;
+bool keep;
 
 double rad(double deg)
 {
@@ -75,8 +83,8 @@ start(void *, const char *el, const char **attr)
             {
                 lon = atof(value);
             }
-            nodes[id] = Node(lon, lat, id);
         }
+        nodes[id] = Node(lon, lat, id);
     }
 
     else if (strcmp(el, "nd") == 0)
@@ -86,20 +94,74 @@ start(void *, const char *el, const char **attr)
         if (strcmp(name, "ref") == 0)
         {
             uint64_t node_id = atoll(value);
-            nodes[node_id].uses++;
+            way_nodes.push_back(node_id);
+//            nodes[node_id].uses++;
         }
     }
 
     else if(strcmp(el, "way") == 0)
     {
+        keep = false;
+        way_nodes.clear();
+        ep.reset();
+        const char* name = *attr++;
+        const char* value = *attr++;
+        if( !strcmp(name, "id") == 0 )
+        {
+            cout << "fuck" << std::endl;
+        }
+        else
+        {
+            current_way = atoll(value);
+        }
         ways_count++;
     }
+
+    else if(!keep && strcmp(el, "tag") == 0)
+    {
+        string key;
+        while (*attr != NULL)
+        {
+            const char* name = *attr++;
+            const char* value = *attr++;
+
+            if ( strcmp(name, "k") == 0 )
+                key = value;
+            else if ( strcmp(name, "v") == 0 )
+            {
+                keep = ep.update(key, value);
+            }
+        }
+    }
+
 }
 
     void
 start2(void *, const char *el, const char **attr)
 {
-    if (strcmp(el, "nd") == 0)
+    if(strcmp(el, "way") == 0)
+    {
+        way_nodes.clear();
+        ep.reset();
+        const char* name = *attr++;
+        const char* value = *attr++;
+        if( !strcmp(name, "id") == 0 )
+        {
+            cout << "fuck" << std::endl;
+        }
+        else
+        {
+            if(ways_black_list.find(atoll(value)) == ways_black_list.end())
+            {
+                keep = true;
+            }
+            else
+                keep = false;
+
+        }
+    }
+
+    if (keep && strcmp(el, "nd") == 0)
     {
         const char* name = *attr++;
         const char* value = *attr++;
@@ -138,7 +200,7 @@ start2(void *, const char *el, const char **attr)
         }
     }
 
-    else if(strcmp(el, "tag") == 0)
+    else if(keep && strcmp(el, "tag") == 0)
     {
         string key;
         while (*attr != NULL)
@@ -158,14 +220,30 @@ start2(void *, const char *el, const char **attr)
 }
 
     void
-end(void *, const char *)
+end(void * , const char * el)
 {
+    if(strcmp(el, "way") == 0)
+    {
+        if(keep)
+        {
+            deque<uint64_t>::const_iterator it;
+            for(it = way_nodes.begin(); it < way_nodes.end(); it++)
+            {
+                nodes[*it].uses++;
+            }
+        }
+        else
+        {
+            ways_black_list.insert(current_way);
+        }
+      } 
+
 }
 
     void
 end2(void *, const char *el)
 {
-    if(strcmp(el, "way") == 0)
+    if(keep && strcmp(el, "way") == 0)
     {
         int advance = (ways_progress++ * 50 / (ways_count));
         cout << "\r[" << setfill('=') << setw(advance) << ">" <<setfill(' ') << setw(50-advance) << "] " << flush;
@@ -217,7 +295,13 @@ main(int argc, char** argv)
     //==================== STEP 1 =======================//
     cout << "Step 1: reading the xml file, extracting the Nodes list" << flush;
 
-    FILE* fp = fopen(argv[1], "rb");
+    FILE* fp = fopen64(argv[1], "rb");
+    if(!fp)
+    {
+        std::cout << std::endl;
+        std::cerr << "Error opening file " << argv[1] << " errorno " << errno << " " << strerror(errno) << std::endl;
+        exit(1);
+    }
     XML_Parser parser = XML_ParserCreate(NULL);
     XML_SetElementHandler(parser, start, end);
     int done;
@@ -244,6 +328,7 @@ main(int argc, char** argv)
 
     //===================== STEP 2 ==========================//
     cout << "Step 2: building edges and saving them in the file edges.csv" << endl;
+    keep = false;
     rewind(fp);
     XML_Parser parser2 = XML_ParserCreate(NULL);
     XML_SetElementHandler(parser2, start2, end2);

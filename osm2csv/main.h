@@ -69,7 +69,7 @@ class Edge_property
     bool reverse_accessible();
 
     // Update the properties given new information
-    void update(const std::string & tag, const std::string & val);
+    bool update(const std::string & tag, const std::string & val);
 
     // Infer unknown data
     void normalize();

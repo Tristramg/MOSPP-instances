@@ -25,7 +25,7 @@ if retcode != 0 or not os.path.exists("edges.csv") or not os.path.exists("nodes.
 
 print "Last step: updating the nodes to include elevation data"
 
-eld = elevation.ElevationData("Eurasia")
+eld = elevation.ElevationData("North_America")
 file = open("nodes.csv", "r")
 out_file = open("nodes2.csv", "w")
 for line in file:
