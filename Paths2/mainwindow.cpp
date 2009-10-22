@@ -14,16 +14,16 @@ MainWindow::MainWindow(QWidget *parent)
 {
     std::string path = "/home/tristram/MOSPP-instances/instances/San Francisco";
     std::pair<int, int> a, b, c, d;
-    a = g.load("foot", path + "/nodes_big.csv", path+"/edges_big.csv", Foot);
+    a = g.load("foot", path + "/nodes_l.csv", path+"/edges_l.csv", Foot);
     cout << "Loaded " << a.first << " nodes, and " << a.second << " edges" << endl;
 
-    b = g.load("bart", path + "/stops.txt", path+"/stop_times.txt", PublicTransport);
+    b = g.load("bart", path + "/stops_bart.txt", path+"/stop_times_bart.txt", PublicTransport);
     cout << "Loaded " << b.first << " nodes, and " << b.second << " edges" << endl;
 
     c = g.load("muni", path + "/stops_muni.txt", path+"/stop_times_muni.txt", PublicTransport);
     cout << "Loaded " << c.first << " nodes, and " << c.second << " edges" << endl;
 
-    d = g.load("bike", path + "/nodes_big.csv", path+"/edges_big.csv", Bike);
+    d = g.load("bike", path + "/nodes_l.csv", path+"/edges_l.csv", Bike);
     cout << "Loaded " << d.first << " nodes, and " << d.second << " edges" << endl;
 
     Edge interconnexion;
@@ -202,15 +202,20 @@ void MainWindow::compute()
     if(stop != NULL && stop != NULL)
     {
         cout << "Starting the martins algorithm. Let's see what happens" << endl;
-        vector<Path> labels = martins(start_node, dest_node, g, &Edge::nb_changes);
+        vector<Path> labels = martins(start_node, dest_node, g, &Edge::nb_changes, &Edge::elevation);
         this->m_ui->result_label->setText(QString("Nb solutions = %1").arg(labels.size()));
         int i = 0;
         this->m_ui->result_table->setRowCount(labels.size());
+        QString txt;
         for(vector<Path>::iterator it = labels.begin(); it != labels.end(); it++)
         {
             QTableWidgetItem *  foo;
+            txt.append(QString("%1 %2 %3\n").arg(it->cost[0]).arg(it->cost[1]).arg(it->cost[2]));
+
+
             foo = new QTableWidgetItem(QString("%1").arg(it->cost[0]));
             this->m_ui->result_table->setItem(i, 0, foo);
+
             foo = new QTableWidgetItem(QString("%1").arg(it->cost[1]));
             this->m_ui->result_table->setItem(i, 1, foo);
             foo = new QTableWidgetItem(QString("%1").arg(it->cost[2]));
@@ -219,6 +224,8 @@ void MainWindow::compute()
             this->m_ui->result_table->setItem(i, 3, foo);
             i++;
         }
+        QClipboard *clipboard = QApplication::clipboard();
+        clipboard->setText(txt);
         paths = labels;
     }
 

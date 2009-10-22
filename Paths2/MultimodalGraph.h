@@ -47,6 +47,7 @@ struct Edge
 };
 
 typedef boost::adjacency_list<boost::listS, boost::vecS, boost::directedS, Node, Edge > Graph_t;
+//typedef boost::adjacency_list<boost::listS, boost::vecS, boost::bidirectionalS, Node, Edge > Graph_t;
 typedef boost::graph_traits<Graph_t>::vertex_descriptor node_t;
 typedef boost::graph_traits<Graph_t>::edge_descriptor edge_t;
 

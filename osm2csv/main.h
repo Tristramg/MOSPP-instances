@@ -102,7 +102,7 @@ struct Edge
 };
 
 
-typedef __gnu_cxx::hash_map<std::string, Node> NodeMapType;
+typedef __gnu_cxx::hash_map<uint64_t, Node, std::tr1::hash<uint64_t> >NodeMapType;
 
 #endif /* _MAIN_H */
 

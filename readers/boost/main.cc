@@ -30,6 +30,7 @@ struct Edge
     float elevation;
     float bike_comfort;
 };
+struct not_found{};
 
 typedef boost::adjacency_list<boost::listS, boost::vecS, boost::directedS, Node, Edge > Graph;
 typedef boost::graph_traits<Graph>::vertex_descriptor node_t;
@@ -47,7 +48,7 @@ float car_duration(int property, float length)
         case 4: return 90 * length / 3.6; break;
         case 5: return 100 * length / 3.6; break;
         case 6: return 120 * length / 3.6; break;
-        default: return numeric_limits<float>::max();
+        default: throw not_found();
     }
 }
 
@@ -55,11 +56,11 @@ float bike_duration(int bike_property, int car_property, float length)
 {
     switch(bike_property)
     {
-        case 0: return numeric_limits<float>::max(); break;
+        case 0: throw not_found();
         case 2: if(car_property < 5)
                     return length * 18/3.6;
                 else
-                    return numeric_limits<float>::max();
+                   throw not_found();
                 break;
         default: return length * 18/3.6;
     }
@@ -74,7 +75,7 @@ float bike_comfort(int bike_property, int car_property, float length)
         case 2: return car_property * length; break;
         case 4: return length * 1.5; break;
         case 5: return 0.5 * length; break;
-        default: return numeric_limits<float>::max();
+        default: throw not_found();
     }
 }
 
@@ -137,17 +138,20 @@ int main(int argc, char ** argv)
             e.distance = length;
             e.foot_duration = length * 4/3.6;
 
+            try{
             e.elevation = max(0, g[target_n].elevation - g[source_n].elevation);
             e.bike_duration = bike_duration(bike, car, length);
-            e.car_duration = car_duration(car, length);
+         //   e.car_duration = car_duration(car, length);
             e.bike_comfort = bike_comfort(bike, car, length);
             add_edge(source_n, target_n, e, g);
-
+            }catch(not_found) {}
+            try{
             e.elevation = max(0, g[source_n].elevation - g[target_n].elevation);
             e.bike_duration = bike_duration(bike_reverse, car_reverse, length);
             e.bike_comfort = bike_comfort(bike_reverse, car_reverse, length);
-            e.car_duration = car_duration(car_reverse, length);
+          //  e.car_duration = car_duration(car_reverse, length);
             add_edge(target_n, source_n, e, g);
+            } catch(not_found){}
         }
     }
     edges.close();
@@ -158,12 +162,20 @@ int main(int argc, char ** argv)
     vector<node_t> p(num_vertices(g)); 
     // Will contain the distance from the source to each node
     vector<float> d(num_vertices(g));
+    for(int source = 0; source < num_vertices(g); source += num_vertices(g)/10)
+    {
     dijkstra_shortest_paths(g,
-            0, // source node
+            source, // source node
             // You can choose the attribute from Edge to minimize
-            weight_map(get(&Edge::distance, g))
+            weight_map(get(&Edge::elevation, g))
             .predecessor_map(&p[0])
             .distance_map(&d[0]));
+    cout << "source: " << g[source].id << endl;
+    cout << "# -[node, predecessor, minimum cost]" << endl;
+        
+    for(size_t i=0; i< num_vertices(g); i++)
+        cout << "  - [" << g[i].id << ", " << g[p[i]].id << ", " << d[i] << "]"<< endl;
+    }
 
     return(0);
 }

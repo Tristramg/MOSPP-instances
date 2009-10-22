@@ -47,7 +47,7 @@
    </property>
    <widget class="QMenu" name="menuFoo">
     <property name="title">
-     <string>foo</string>
+     <string>File</string>
     </property>
     <addaction name="actionQuit"/>
    </widget>
@@ -211,17 +211,17 @@ p, li { white-space: pre-wrap; }
       <widget class="QTableWidget" name="result_table">
        <column>
         <property name="text">
-         <string>Distance</string>
+         <string>Duration</string>
         </property>
        </column>
        <column>
         <property name="text">
-         <string>D+</string>
+         <string>Switches</string>
         </property>
        </column>
        <column>
         <property name="text">
-         <string>Comfort</string>
+         <string>Elevation</string>
         </property>
        </column>
        <column>

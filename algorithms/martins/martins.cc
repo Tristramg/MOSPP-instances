@@ -11,6 +11,8 @@
 #include <boost/multi_index/identity.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/array.hpp>
+#include <deque>
+#include "boost/multi_index/hashed_index.hpp" 
 
 using namespace boost::multi_index;
 using namespace boost::spirit;
@@ -36,6 +38,8 @@ struct Edge
     float bike_comfort;
 };
 
+struct not_accessible{};
+
 typedef boost::adjacency_list<boost::listS, boost::vecS, boost::directedS, Node, Edge > Graph;
 typedef boost::graph_traits<Graph>::vertex_descriptor node_t;
 typedef boost::graph_traits<Graph>::edge_descriptor edge_t;
@@ -54,7 +58,7 @@ float car_duration(int property, float length)
         case 4: return 90 * length / 3.6; break;
         case 5: return 100 * length / 3.6; break;
         case 6: return 120 * length / 3.6; break;
-        default: return numeric_limits<float>::max();
+        default: throw not_accessible();
     }
 }
 
@@ -62,11 +66,11 @@ float bike_duration(int bike_property, int car_property, float length)
 {
     switch(bike_property)
     {
-        case 0: return numeric_limits<float>::max(); break;
+        case 0:  throw not_accessible(); break;
         case 2: if(car_property < 5)
                     return length * 18/3.6;
                 else
-                    return numeric_limits<float>::max();
+                    throw not_accessible();
                 break;
         default: return length * 18/3.6;
     }
@@ -81,7 +85,7 @@ float bike_comfort(int bike_property, int car_property, float length)
         case 2: return car_property * length; break;
         case 4: return length * 1.5; break;
         case 5: return 0.5 * length; break;
-        default: return numeric_limits<float>::max();
+        default: throw not_accessible();
     }
 }
 
@@ -92,6 +96,7 @@ template<size_t nb_objectives> struct LabelN
     node_t node;
     array<float, nb_objectives> cost;
     node_t pred;
+    size_t pred_idx;
 
     bool operator==(const LabelN & l)
     {
@@ -110,7 +115,7 @@ template<size_t nb_objectives> struct LabelN
         {
             if(this->cost[i] > l.cost[i])
                 return false;
-            if(!strict && this->cost[i] < l.cost[i])
+            if(this->cost[i] < l.cost[i])
                 strict = true;
         }
         return strict;
@@ -123,7 +128,7 @@ typedef multi_index_container<
 Label,
     indexed_by<
     ordered_non_unique<member<Label, array<float, Label::obj>, &Label::cost> >,
-    ordered_non_unique<member<Label, node_t, &Label::node > >
+    hashed_non_unique<member<Label, node_t, &Label::node > >
     >
     > my_queue;
 
@@ -148,9 +153,9 @@ bool is_dominated_by_any(const my_queue & Q, const Label & l)
     return false;
 }
 
-bool is_dominated_by_any(const list<Label> & llist, const Label & l)
+bool is_dominated_by_any(const deque<Label> & llist, const Label & l)
 {
-    for(list<Label>::const_iterator it = llist.begin(); it != llist.end(); it++)
+    for(deque<Label>::const_iterator it = llist.begin(); it != llist.end(); it++)
     {
         if(it->dominates(l))
             return true;
@@ -185,6 +190,8 @@ int main(int argc, char ** argv)
             n.lon = lon;
             n.lat = lat;
             n.elevation = elevation;
+            if(elevation < 1)
+                cout << "Damn ! " << elevation << endl;
             node_map[id] = add_vertex(n, g);
         }
     }
@@ -217,25 +224,34 @@ int main(int argc, char ** argv)
             node_t target_n = node_map[target];
             e.distance = length;
             e.foot_duration = length * 4/3.6;
+            try
+            {
+                e.elevation = max(0, g[target_n].elevation - g[source_n].elevation);
+                e.bike_duration = bike_duration(bike, car, length);
+         //       e.car_duration = car_duration(car, length);
+                e.bike_comfort = bike_comfort(bike, car, length);
+                add_edge(source_n, target_n, e, g);
+            }
+            catch(not_accessible e)
+            {}
 
-            e.elevation = max(0, g[target_n].elevation - g[source_n].elevation);
-            e.bike_duration = bike_duration(bike, car, length);
-            e.car_duration = car_duration(car, length);
-            e.bike_comfort = bike_comfort(bike, car, length);
-            add_edge(source_n, target_n, e, g);
-
-            e.elevation = max(0, g[source_n].elevation - g[target_n].elevation);
-            e.bike_duration = bike_duration(bike_reverse, car_reverse, length);
-            e.bike_comfort = bike_comfort(bike_reverse, car_reverse, length);
-            e.car_duration = car_duration(car_reverse, length);
-            add_edge(target_n, source_n, e, g);
+            try
+            {
+                e.elevation = max(0, g[source_n].elevation - g[target_n].elevation);
+                e.bike_duration = bike_duration(bike_reverse, car_reverse, length);
+                e.bike_comfort = bike_comfort(bike_reverse, car_reverse, length);
+           //     e.car_duration = car_duration(car_reverse, length);
+                add_edge(target_n, source_n, e, g);
+            }
+            catch(not_accessible e)
+            {}
         }
     }
     edges.close();
     cout << "Read " << num_edges(g) << " edges" << endl;
 
     // Step 2: running the algorithm
-    vector<list<Label> > P(num_vertices(g));
+    vector<deque<Label> > P(num_vertices(g));
     my_queue Q;
 
     Label start;
@@ -246,8 +262,9 @@ int main(int argc, char ** argv)
     Q.insert(start);
     const queue_by_cost cost_q_it = Q.get<0>();
     const queue_by_node node_q = Q.get<1>();
+    bool finished = false;
 
-    while( !Q.empty() )
+    while( !Q.empty() && !finished)
     {
         Label l = *(cost_q_it.begin());
         Q.erase(cost_q_it.begin());
@@ -260,28 +277,45 @@ int main(int argc, char ** argv)
             l2.node = boost::target(*ei,g);
             l2.cost = l.cost;
             l2.pred = l.node;
+            l2.pred_idx = P[l.node].size();
             l2.cost[0] = l.cost[0] + g[*ei].distance;
             l2.cost[1] = l.cost[1] + g[*ei].elevation;
             l2.cost[2] = l.cost[2] + g[*ei].bike_comfort;
-            if(!is_dominated_by_any(Q, l2) && !is_dominated_by_any(P[l2.node],l2))
+            if(!is_dominated_by_any(Q, l2) && !is_dominated_by_any(P[l2.node],l2) && !is_dominated_by_any(P[524],l2))
             {
+                bool insert = true;
                 my_queue::nth_index<1>::type::iterator it, end;
                 tie(it, end) = node_q.equal_range(l2.node);
                 while(it != end)
                 {
-                    if(l2.dominates(*it))
+                    if(l2.dominates(*it) )
                         it = Q.get<1>().erase(it);
                     else
+                    {
                         it++;
+                        if(l2.cost == it->cost)
+                            insert = false;
+                    }
                 }
-                Q.insert(l2);
+                if(insert)
+                {
+                    Q.insert(l2);
+//                    cout << "   Inserted " << l2 << endl;
+                }
             }
         }
     }
 
     //Step 3: displaying how many labels we have on each node
-    for (size_t i = 0; i != P.size(); i++)
-        cout << i << "[" << P[i].size() << "] ";
+    for (size_t i = 0; i < P.size(); i+=P.size()/10)
+    {
+        cout << "node: " << i << " " << g[i].id << endl;
+        for(deque<Label>::iterator it = P[i].begin(); it != P[i].end(); it++)
+            cout << "  - [" << it->cost[0] << ", " << it->cost[1] << ", " << it->cost[2]
+                << "]" << endl;
+
+        //        cout << i << "[" << P[i].size() << "] ";
+    }
 
     return(0);
 }
