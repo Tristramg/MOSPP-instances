@@ -33,13 +33,12 @@ uint64_t ways_progress;
 Edge_property ep;
 std::list<Edge> edges;
 double length;
-int edges_inserted;
 ofstream edges_file;
 
-__gnu_cxx::hash_set<uint64_t, std::tr1::hash<uint64_t> > ways_black_list;
+ofstream temp_edges;
+
 std::deque<uint64_t> way_nodes;
 uint64_t current_way;
-bool keep;
 
 double rad(double deg)
 {
@@ -95,13 +94,12 @@ start(void *, const char *el, const char **attr)
         {
             uint64_t node_id = atoll(value);
             way_nodes.push_back(node_id);
-//            nodes[node_id].uses++;
+            //            nodes[node_id].uses++;
         }
     }
 
     else if(strcmp(el, "way") == 0)
     {
-        keep = false;
         way_nodes.clear();
         ep.reset();
         const char* name = *attr++;
@@ -117,90 +115,7 @@ start(void *, const char *el, const char **attr)
         ways_count++;
     }
 
-    else if(!keep && strcmp(el, "tag") == 0)
-    {
-        string key;
-        while (*attr != NULL)
-        {
-            const char* name = *attr++;
-            const char* value = *attr++;
-
-            if ( strcmp(name, "k") == 0 )
-                key = value;
-            else if ( strcmp(name, "v") == 0 )
-            {
-                keep = ep.update(key, value);
-            }
-        }
-    }
-
-}
-
-    void
-start2(void *, const char *el, const char **attr)
-{
-    if(strcmp(el, "way") == 0)
-    {
-        way_nodes.clear();
-        ep.reset();
-        const char* name = *attr++;
-        const char* value = *attr++;
-        if( !strcmp(name, "id") == 0 )
-        {
-            cout << "fuck" << std::endl;
-        }
-        else
-        {
-            if(ways_black_list.find(atoll(value)) == ways_black_list.end())
-            {
-                keep = true;
-            }
-            else
-                keep = false;
-
-        }
-    }
-
-    if (keep && strcmp(el, "nd") == 0)
-    {
-        const char* name = *attr++;
-        const char* value = *attr++;
-        if (strcmp(name, "ref") == 0)
-        {
-            uint64_t id = atoll(value);
-            Node * n = &(nodes[id]);
-
-            if(edge_length == 0)
-            {
-                source = n;
-            }
-            else
-            {
-                geom << ", ";
-                length += distance(prev->lon, prev->lat, n->lon, n->lat);
-            }
-
-            geom << n->lon << " " << n->lat;
-            prev = n;
-            edge_length++;
-
-            if(n->uses > 1 && edge_length > 1 )
-            {
-                // It's a duplicate node, or a loop way
-                if(source != prev)
-                    edges.push_back(Edge(source, prev, geom.str(), length));
-
-                source = n;
-                length = 0;
-
-                geom.str("");
-                geom << n->lon << " " << n->lat;
-                edge_length = 1;
-            }
-        }
-    }
-
-    else if(keep && strcmp(el, "tag") == 0)
+    else if(strcmp(el, "tag") == 0)
     {
         string key;
         while (*attr != NULL)
@@ -224,67 +139,31 @@ end(void * , const char * el)
 {
     if(strcmp(el, "way") == 0)
     {
-        if(keep)
-        {
-            deque<uint64_t>::const_iterator it;
-            for(it = way_nodes.begin(); it < way_nodes.end(); it++)
-            {
-                nodes[*it].uses++;
-            }
-        }
-        else
-        {
-            ways_black_list.insert(current_way);
-        }
-      } 
-
-}
-
-    void
-end2(void *, const char *el)
-{
-    if(keep && strcmp(el, "way") == 0)
-    {
-        int advance = (ways_progress++ * 50 / (ways_count));
-        cout << "\r[" << setfill('=') << setw(advance) << ">" <<setfill(' ') << setw(50-advance) << "] " << flush;
-        if(edge_length >= 2)       
-        {
-            edges.push_back(Edge(source, prev, geom.str(), length));
-        }
- 
         if(ep.accessible())
         {
             ep.normalize();
-            list<Edge>::iterator it;
-            for(it = edges.begin(); it != edges.end(); it++)
+            deque<uint64_t>::const_iterator it;
+            temp_edges << ep.foot << " "
+                << ep.car_direct << " " << ep.car_reverse << " "
+                << ep.bike_direct << " " << ep.bike_reverse << " "
+                << way_nodes.size();
+            for(it = way_nodes.begin(); it < way_nodes.end(); it++)
             {
-                (*it).source->inserted = true;
-                (*it).target->inserted = true;
-                edges_file << edges_inserted << "," <<  // id
-                    (*it).source->id << "," << // source
-                    (*it).target->id << "," << // target
-                    (*it).length << "," << // length
-                    ep.car_direct << "," <<
-                    ep.car_reverse << "," <<
-                    ep.bike_direct << "," <<
-                    ep.bike_reverse << "," <<
-                    ep.foot << "," <<
-                    "LINESTRING(\"" << (*it).geom << "\")" << endl;
-                edges_inserted++;
+                nodes[*it].uses++;
+                temp_edges << " " << *it;
             }
-        }
-        edges.clear();
-        length = 0;
-        geom.str("");
-        edge_length = 0;
-        ep.reset();
+            temp_edges << endl;
 
-    }
+            nodes[way_nodes.front()].uses++;
+            nodes[way_nodes.back()].uses++;
+        }
+    } 
 }
 
     int
 main(int argc, char** argv)
 {
+    temp_edges.open("temp_ways");
     if (argc != 2)
     {
         cout << "Usage: " << argv[0] << " in_database.osm" << endl;
@@ -328,35 +207,62 @@ main(int argc, char** argv)
 
     //===================== STEP 2 ==========================//
     cout << "Step 2: building edges and saving them in the file edges.csv" << endl;
-    keep = false;
-    rewind(fp);
-    XML_Parser parser2 = XML_ParserCreate(NULL);
-    XML_SetElementHandler(parser2, start2, end2);
 
-    edges_file.open ("edges.csv");
-    // By default outstream only give 4 digits after the dot (~10m precision)
-    edges_file << setprecision(9);
-    edges_file << "\"edge_id\",\"source\",\"target\",\"length\",\"car\",\"car reverse\",\"bike\",\"bike reverse\",\"foot\",\"WKT\"" << endl;
+    temp_edges.close();
+    edges_file.open("edges.csv");
+    ifstream tmp;
+    tmp.open("temp_ways");
+    uint64_t id;
+    stringstream geom;
+    float length = 0, pred_lon = 0, pred_lat = 0;
+    char car_direct, car_rev, foot, bike_direct, bike_rev;
+    int nb;
+    int edges_inserted = 0;
+    Node n;
+    string line;
 
-
-    do // loop over whole file content
+    while(getline(tmp, line))
     {
-        char buf[BUFSIZ];
-        size_t len = fread(buf, 1, sizeof (buf), fp); // read chunk of data
-        done = len < sizeof (buf); // end of file reached if buffer not completely filled
-        if (!XML_Parse(parser2, buf, (int) len, done))
+        stringstream way(line);
+        way >> foot >> car_direct >> car_rev >> bike_direct >> bike_rev >> nb;
+        for(int i=0; i<nb; i++)
         {
-            // a parse error occured:
-            cerr << XML_ErrorString(XML_GetErrorCode(parser)) <<
-                " at line " <<
-                XML_GetCurrentLineNumber(parser) << endl;
-            fclose(fp);
-            done = 1;
+            way >> id;
+            n = nodes[id];
+
+            if(i == 0)
+            {
+                edges_file << edges_inserted << "," << id << ",";
+            }
+            else
+            {
+                length += distance(n.lon, n.lat, pred_lon, pred_lat);
+                geom << ",";
+            }
+
+            pred_lon = n.lon;
+            pred_lat = n.lat;
+
+            geom << n.lon << " " << n.lat;
+            if( i>0 && n.uses > 1)
+            {
+                edges_file << n.id << ","
+                    << length << ","
+                    << car_direct << "," << car_rev << "," 
+                    << bike_direct << "," << bike_rev << ","
+                    << foot << ","
+                    << "LINESTRING(\"" << geom.str() << "\")" << endl;
+                edges_inserted++;
+                length = 0;
+                geom.str("");
+                edges_file << edges_inserted << "," << id << ",";
+                geom << n.lon << " " << n.lat;
+            }
         }
     }
-    while (!done);
+
+    tmp.close();
     edges_file.close();
-    cout << "DONE!" << endl << endl;
 
     //==================== STEP 3 =======================//
     cout << "Step 3: storing the intersection nodes in the file nodes.csv" << endl;
@@ -379,7 +285,7 @@ main(int argc, char** argv)
             next_step += step;
         }
 
-        if( (*i).second.inserted )
+        if( (*i).second.uses > 1 )
         {
             nodes_file << (*i).first << "," <<
                 (*i).second.lon << "," << 
