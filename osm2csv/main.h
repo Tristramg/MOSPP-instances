@@ -15,7 +15,6 @@
     along with Mumoro.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <list>
 #include <expat.h>
 #include <string>
 #include <iostream>
@@ -25,7 +24,6 @@
 #include <cstring>
 #include <bitset>
 #include <iomanip>
-#include <iostream>
 #include <fstream>
 #include <stdint.h>
 #include <sstream>
@@ -33,6 +31,7 @@
 #ifndef _MAIN_H
 #define _MAIN_H
 
+typedef uint64_t node_t;
 const int unknown = -1;
 const int foot_forbiden = 0;
 const int foot_allowed = 1;
@@ -80,28 +79,16 @@ class Edge_property
 struct Node
 {
     uint64_t id;
-    double lon;
-    double lat;
+    float lon;
+    float lat;
     ushort uses;
-    bool inserted;
 
-    Node() : inserted(false) {};
+    Node() : uses(0) {};
 
     Node(double _lon, double _lat, uint64_t _id) :
-        id(_id), lon(_lon), lat(_lat), uses(0), inserted(false)
+        id(_id), lon(_lon), lat(_lat), uses(0)
     {};
 };
-
-struct Edge
-{
-   Node * source;
-   Node * target;
-   std::string geom;
-   double length;
-   Edge(Node *, Node *, const std::string &, double);
-};
-
-
 typedef __gnu_cxx::hash_map<uint64_t, Node, std::tr1::hash<uint64_t> >NodeMapType;
 
 #endif /* _MAIN_H */

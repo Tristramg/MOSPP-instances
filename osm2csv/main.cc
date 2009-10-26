@@ -17,9 +17,10 @@
 
 #include "main.h"
 #include "cmath"
-#include <cerrno>
 #include <hash_set>
 #include <deque>
+#include "stdinreader.h"
+#include "csvwriter.h"
 
 using namespace std;
 
@@ -27,18 +28,16 @@ Node * source;
 Node * prev;
 std::stringstream geom;
 NodeMapType nodes;
-uint64_t ways_count;
+node_t ways_count;
 int edge_length;
-uint64_t ways_progress;
+node_t ways_progress;
 Edge_property ep;
-std::list<Edge> edges;
 double length;
-ofstream edges_file;
 
 ofstream temp_edges;
 
-std::deque<uint64_t> way_nodes;
-uint64_t current_way;
+std::deque<node_t> way_nodes;
+node_t current_way;
 
 double rad(double deg)
 {
@@ -53,17 +52,12 @@ double distance(double lon1, double lat1, double lon2, double lat2)
             cos( rad(lat1) ) * cos( rad(lat2) ) * cos( rad(lon2-lon1 ) )
             ) * r;
 }
-
-Edge::Edge(Node * s, Node * t, const std::string & g, double l) :
-    source(s), target(t), geom(g), length(l)
-{
-}
-    void
+   void
 start(void *, const char *el, const char **attr)
 {
     if (strcmp(el, "node") == 0)
     {
-        uint64_t id = 0;
+        node_t id = 0;
         double lat = 0, lon = 0;
         while (*attr != NULL)
         {
@@ -92,9 +86,8 @@ start(void *, const char *el, const char **attr)
         const char* value = *attr++;
         if (strcmp(name, "ref") == 0)
         {
-            uint64_t node_id = atoll(value);
+            node_t node_id = atoll(value);
             way_nodes.push_back(node_id);
-            //            nodes[node_id].uses++;
         }
     }
 
@@ -134,15 +127,14 @@ start(void *, const char *el, const char **attr)
 
 }
 
-    void
-end(void * , const char * el)
+void end(void * , const char * el)
 {
     if(strcmp(el, "way") == 0)
     {
         if(ep.accessible())
         {
             ep.normalize();
-            deque<uint64_t>::const_iterator it;
+            deque<node_t>::const_iterator it;
             temp_edges << ep.foot << " "
                 << ep.car_direct << " " << ep.car_reverse << " "
                 << ep.bike_direct << " " << ep.bike_reverse << " "
@@ -163,7 +155,6 @@ end(void * , const char * el)
     int
 main(int argc, char** argv)
 {
-    temp_edges.open("temp_ways");
     if (argc != 2)
     {
         cout << "Usage: " << argv[0] << " in_database.osm" << endl;
@@ -173,46 +164,38 @@ main(int argc, char** argv)
 
     //==================== STEP 1 =======================//
     cout << "Step 1: reading the xml file, extracting the Nodes list" << flush;
-
-    FILE* fp = fopen64(argv[1], "rb");
-    if(!fp)
-    {
-        std::cout << std::endl;
-        std::cerr << "Error opening file " << argv[1] << " errorno " << errno << " " << strerror(errno) << std::endl;
-        exit(1);
-    }
+    temp_edges.open("temp_ways");
     XML_Parser parser = XML_ParserCreate(NULL);
     XML_SetElementHandler(parser, start, end);
-    int done;
-    do // loop over whole file content
+    ios_base::sync_with_stdio(false);
+    Reader * reader = new StdinReader();
+//    OsmReader reader(argv[1]);
+    while ( !reader->eof() ) 
     {
         char buf[BUFSIZ];
-        size_t len = fread(buf, 1, sizeof (buf), fp); // read chunk of data
-        done = len < sizeof (buf); // end of file reached if buffer not completely filled
-        if (!XML_Parse(parser, buf, (int) len, done))
+        //        size_t len = fread(buf, 1, sizeof (buf), fp); // read chunk of data
+        int read = reader->read( buf, sizeof(buf) );
+        if( !XML_Parse(parser, buf, read, reader->eof()) )
         {
-            // a parse error occured:
             cerr << XML_ErrorString(XML_GetErrorCode(parser)) <<
                 " at line " <<
                 XML_GetCurrentLineNumber(parser) << endl;
-            fclose(fp);
-            done = 1;
         }
     }
-    while (!done);
+    XML_ParserFree(parser);
+    temp_edges.close();
+    delete reader;
     cout << "... DONE!" << endl;
     cout << "    Nodes found: " << nodes.size() << endl;
     cout << "    Ways found: " << ways_count << endl << endl;
 
 
     //===================== STEP 2 ==========================//
+    Writer * writer = new CSVWriter();
     cout << "Step 2: building edges and saving them in the file edges.csv" << endl;
-
-    temp_edges.close();
-    edges_file.open("edges.csv");
     ifstream tmp;
     tmp.open("temp_ways");
-    uint64_t id;
+    node_t id, source=0;
     stringstream geom;
     float length = 0, pred_lon = 0, pred_lat = 0;
     char car_direct, car_rev, foot, bike_direct, bike_rev;
@@ -220,6 +203,7 @@ main(int argc, char** argv)
     int edges_inserted = 0;
     Node n;
     string line;
+
 
     while(getline(tmp, line))
     {
@@ -232,7 +216,7 @@ main(int argc, char** argv)
 
             if(i == 0)
             {
-                edges_file << edges_inserted << "," << id << ",";
+                source = id;
             }
             else
             {
@@ -244,56 +228,24 @@ main(int argc, char** argv)
             pred_lat = n.lat;
 
             geom << n.lon << " " << n.lat;
-            if( i>0 && n.uses > 1)
+            if( i>0 && n.uses > 1 && id != source)
             {
-                edges_file << n.id << ","
-                    << length << ","
-                    << car_direct << "," << car_rev << "," 
-                    << bike_direct << "," << bike_rev << ","
-                    << foot << ","
-                    << "LINESTRING(\"" << geom.str() << "\")" << endl;
+                writer->save_edge(edges_inserted, source, id, length, car_direct, car_rev, bike_direct, bike_rev, foot, geom.str());
                 edges_inserted++;
                 length = 0;
                 geom.str("");
-                edges_file << edges_inserted << "," << id << ",";
-                geom << n.lon << " " << n.lat;
+                source = id;
             }
         }
     }
 
     tmp.close();
-    edges_file.close();
 
     //==================== STEP 3 =======================//
     cout << "Step 3: storing the intersection nodes in the file nodes.csv" << endl;
-    uint64_t count = 0, step = nodes.size() / 50, next_step = 0;
+    int nodes_inserted = writer->save_nodes(nodes);
+    delete writer;
 
-    ofstream nodes_file;
-    nodes_file.open ("nodes.csv");
-    // By default outstream only give 4 digits after the dot (~10m precision)
-    nodes_file << setprecision(9);
-    nodes_file << "\"node_id\",\"longitude\",\"latitude\",\"altitude\"" << endl;
-    int nodes_inserted = 0;
-
-    for(NodeMapType::const_iterator i = nodes.begin(); i != nodes.end(); i++)
-    {
-        count++;
-        if(count >= next_step)
-        {
-            int advance = (count * 50 / (nodes.size()));
-            cout << "\r[" << setfill('=') << setw(advance) << ">" <<setfill(' ') << setw(50-advance) << "] " << flush;
-            next_step += step;
-        }
-
-        if( (*i).second.uses > 1 )
-        {
-            nodes_file << (*i).first << "," <<
-                (*i).second.lon << "," << 
-                (*i).second.lat << "," << endl;
-            nodes_inserted++;
-        }
-    }
-    nodes_file.close();
     cout << "DONE!" << endl << endl;
 
     cout << "Nodes in database: " << nodes_inserted << endl;
